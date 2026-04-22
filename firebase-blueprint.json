@@ -1,0 +1,113 @@
+{
+  "entities": {
+    "Competition": {
+      "title": "Competition",
+      "description": "A sports league or tournament",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "country": { "type": "string" },
+        "logo": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Match": {
+      "title": "Match",
+      "description": "A sports fixture or completed match",
+      "type": "object",
+      "properties": {
+        "competitionId": { "type": "string" },
+        "homeTeam": { "type": "string" },
+        "awayTeam": { "type": "string" },
+        "homeScore": { "type": "integer" },
+        "awayScore": { "type": "integer" },
+        "status": { "type": "string", "enum": ["scheduled", "live", "finished", "postponed"] },
+        "startTime": { "type": "string", "format": "date-time" },
+        "venue": { "type": "string" },
+        "stats": { "type": "object" },
+        "lineups": { "type": "object" }
+      },
+      "required": ["homeTeam", "awayTeam", "status", "startTime"]
+    },
+    "Article": {
+      "title": "Article",
+      "description": "Editorial sports content",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorId": { "type": "string" },
+        "matchId": { "type": "string" },
+        "type": { "type": "string", "enum": ["preview", "report", "analysis"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "image": { "type": "string" }
+      },
+      "required": ["title", "content", "authorId", "type", "createdAt"]
+    },
+    "Video": {
+      "title": "Video",
+      "description": "Match highlights or short-form clips",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "matchId": { "type": "string" },
+        "cloudflareId": { "type": "string" },
+        "type": { "type": "string", "enum": ["highlight", "goal", "clip"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "cloudflareId", "type"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "A ticketed event, optionally linked to a sports match",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "matchId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "venue": { "type": "string" },
+        "organizerId": { "type": "string" },
+        "price": { "type": "number" },
+        "totalTickets": { "type": "integer" },
+        "soldTickets": { "type": "integer" },
+        "category": { "type": "string" }
+      },
+      "required": ["title", "date", "organizerId", "price"]
+    },
+    "Ticket": {
+      "title": "Ticket",
+      "description": "A ticket purchased by a user",
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string" },
+        "userId": { "type": "string" },
+        "purchaseDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["valid", "used", "cancelled"] },
+        "qrCode": { "type": "string" }
+      },
+      "required": ["eventId", "userId", "purchaseDate", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A platform user",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "editor", "organizer", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "competitions": { "schema": "Competition", "description": "Sports competitions" },
+    "matches": { "schema": "Match", "description": "Match records" },
+    "articles": { "schema": "Article", "description": "Editorial articles" },
+    "videos": { "schema": "Video", "description": "Highlights and clips" },
+    "events": { "schema": "Event", "description": "Ticketing events" },
+    "tickets": { "schema": "Ticket", "description": "Purchased tickets" },
+    "users": { "schema": "User", "description": "User profiles" }
+  }
+}

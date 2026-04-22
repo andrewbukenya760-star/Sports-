@@ -1,0 +1,106 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // Entity Validations
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role']) && data.keys().size() >= 2
+        && data.email is string && data.email.size() <= 100
+        && data.role in ['user', 'editor', 'organizer', 'admin'];
+    }
+
+    function isValidCompetition(data) {
+      return data.keys().hasAll(['name']) && data.name is string && data.name.size() <= 100;
+    }
+
+    function isValidMatch(data) {
+      return data.keys().hasAll(['homeTeam', 'awayTeam', 'status', 'startTime'])
+        && data.homeTeam is string && data.awayTeam is string
+        && data.status in ['scheduled', 'live', 'finished', 'postponed']
+        && data.startTime is string; // Simplified for rule but real check would be timestamp
+    }
+
+    function isValidArticle(data) {
+      return data.keys().hasAll(['title', 'content', 'authorId', 'type', 'createdAt'])
+        && data.title is string && data.title.size() <= 200
+        && data.content is string && data.content.size() <= 50000
+        && data.authorId == request.auth.uid
+        && data.type in ['preview', 'report', 'analysis']
+        && (data.matchId == null || isValidId(data.matchId));
+    }
+
+    function isValidEvent(data) {
+      return data.keys().hasAll(['title', 'date', 'organizerId', 'price'])
+        && data.title is string && data.title.size() <= 200
+        && data.organizerId == request.auth.uid
+        && data.price is number && data.price >= 0;
+    }
+
+    // Collection Rules
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(userId) && isValidUser(incoming())
+        && (request.method == 'create' || incoming().role == existing().role); // Users can't change their own role
+    }
+
+    match /competitions/{compId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /matches/{matchId} {
+      allow read: if true;
+      allow write: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor');
+    }
+
+    match /articles/{articleId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidArticle(incoming()) 
+        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['editor', 'admin']);
+      allow update: if isSignedIn() && isValidArticle(incoming())
+        && (isOwner(existing().authorId) || isAdmin())
+        && incoming().authorId == existing().authorId;
+      allow delete: if isSignedIn() && (isOwner(existing().authorId) || isAdmin());
+    }
+
+    match /videos/{videoId} {
+      allow read: if true;
+      allow write: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor');
+    }
+
+    match /events/{eventId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidEvent(incoming())
+        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['organizer', 'admin']);
+      allow update: if isSignedIn() && isValidEvent(incoming())
+        && (isOwner(existing().organizerId) || isAdmin())
+        && incoming().organizerId == existing().organizerId;
+      allow delete: if isSignedIn() && (isOwner(existing().organizerId) || isAdmin());
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isSignedIn() && (isOwner(existing().userId) || isAdmin() || isOwner(get(/databases/$(database)/documents/events/$(existing().eventId)).data.organizerId));
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only manageable via Firebase Console or special script
+    }
+  }
+}
